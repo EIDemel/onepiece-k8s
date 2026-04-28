@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: devil-fruit-service
-          image: onepiece/devil-fruit-service:latest
+          image: devil-fruit-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3003

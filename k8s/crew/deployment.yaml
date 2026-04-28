@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: crew-service
-          image: onepiece/crew-service:latest
+          image: crew-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3001

@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: battle-service
-          image: onepiece/battle-service:latest
+          image: battle-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3005

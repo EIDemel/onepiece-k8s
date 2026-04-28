@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: ship-service
-          image: onepiece/ship-service:latest
+          image: ship-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3004
