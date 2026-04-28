@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ship-service
+  namespace: onepiece
+  labels:
+    app: ship-service
+spec:
+  selector:
+    app: ship-service
+  ports:
+    - name: http
+      port: 3004
+      targetPort: 3004
+      protocol: TCP
+  type: ClusterIP

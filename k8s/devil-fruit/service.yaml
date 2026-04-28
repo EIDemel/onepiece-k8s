@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devil-fruit-service
+  namespace: onepiece
+  labels:
+    app: devil-fruit-service
+spec:
+  selector:
+    app: devil-fruit-service
+  ports:
+    - name: http
+      port: 3003
+      targetPort: 3003
+      protocol: TCP
+  type: ClusterIP

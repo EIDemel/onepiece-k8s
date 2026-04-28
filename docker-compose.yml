@@ -1,0 +1,112 @@
+version: "3.9"
+
+services:
+  # ─── Databases ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: onepiece
+      POSTGRES_PASSWORD: grandline
+      POSTGRES_DB: onepiece
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onepiece"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ─── Microservices ─────────────────────────────────────────────────
+  crew-service:
+    build: ./services/crew-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: onepiece
+      DB_PASSWORD: grandline
+      DB_NAME: onepiece
+      REDIS_URL: redis://redis:6379
+      CHARACTER_SERVICE_URL: http://character-service:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  character-service:
+    build: ./services/character-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: onepiece
+      DB_PASSWORD: grandline
+      DB_NAME: onepiece
+      REDIS_URL: redis://redis:6379
+      DEVIL_FRUIT_SERVICE_URL: http://devil-fruit-service:3003
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  devil-fruit-service:
+    build: ./services/devil-fruit-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: onepiece
+      DB_PASSWORD: grandline
+      DB_NAME: onepiece
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ship-service:
+    build: ./services/ship-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: onepiece
+      DB_PASSWORD: grandline
+      DB_NAME: onepiece
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  battle-service:
+    build: ./services/battle-service
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      REDIS_URL: redis://redis:6379
+      CHARACTER_SERVICE_URL: http://character-service:3002
+      CREW_SERVICE_URL: http://crew-service:3001
+    depends_on:
+      redis:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  redis_data:

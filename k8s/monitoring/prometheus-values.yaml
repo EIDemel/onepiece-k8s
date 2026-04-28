@@ -1,0 +1,97 @@
+# Prometheus Stack Helm values
+# helm install monitoring prometheus-community/kube-prometheus-stack \
+#   --namespace onepiece-monitoring \
+#   --values prometheus-values.yaml
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    additionalScrapeConfigs:
+      - job_name: 'onepiece-services'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - onepiece
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: replace
+            target_label: service
+
+grafana:
+  enabled: true
+  adminPassword: "grandline123"
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'onepiece'
+          orgId: 1
+          folder: 'One Piece'
+          type: file
+          disableDeletion: false
+          options:
+            path: /var/lib/grafana/dashboards/onepiece
+  dashboards:
+    onepiece:
+      onepiece-overview:
+        json: |
+          {
+            "title": "One Piece Services Overview",
+            "panels": [
+              {"title": "Request Rate", "type": "graph"},
+              {"title": "Error Rate", "type": "graph"},
+              {"title": "Response Time P95", "type": "graph"},
+              {"title": "Pod Count", "type": "stat"}
+            ]
+          }
+  service:
+    type: ClusterIP
+
+alertmanager:
+  enabled: true
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: 'onepiece-alerts'
+    receivers:
+      - name: 'onepiece-alerts'
+
+---
+# ServiceMonitor for automatic Prometheus discovery
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: onepiece-services-monitor
+  namespace: onepiece-monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - onepiece
+  selector:
+    matchLabels: {}
+  endpoints:
+    - path: /metrics
+      interval: 30s

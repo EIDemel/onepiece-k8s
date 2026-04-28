@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crew-service
+  namespace: onepiece
+  labels:
+    app: crew-service
+spec:
+  selector:
+    app: crew-service
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      protocol: TCP
+  type: ClusterIP

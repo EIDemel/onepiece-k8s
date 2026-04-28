@@ -1,0 +1,165 @@
+---
+# ─── Secret ───────────────────────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: onepiece
+type: Opaque
+stringData:
+  POSTGRES_USER: onepiece
+  POSTGRES_PASSWORD: grandline
+  POSTGRES_DB: onepiece
+
+---
+# ─── ConfigMap ────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: onepiece
+data:
+  PGDATA: /var/lib/postgresql/data/pgdata
+  max_connections: "200"
+  shared_buffers: "256MB"
+
+---
+# ─── Headless Service (for StatefulSet DNS) ───────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: onepiece
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+# ─── ClusterIP Service ────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: onepiece
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+# ─── StatefulSet ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: onepiece
+spec:
+  serviceName: postgres-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+        tier: database
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+            - configMapRef:
+                name: postgres-config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "onepiece"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "onepiece"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: postgres-init-scripts
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+# ─── Init Scripts ConfigMap ───────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: onepiece
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS crews (
+      id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE,
+      jolly_roger VARCHAR(255), home_island VARCHAR(100),
+      bounty_total BIGINT DEFAULT 0, ship_id INT,
+      status VARCHAR(50) DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS characters (
+      id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL,
+      alias VARCHAR(100), role VARCHAR(100), bounty BIGINT DEFAULT 0,
+      affiliation VARCHAR(100), crew_id INT REFERENCES crews(id) ON DELETE SET NULL,
+      devil_fruit_id INT, haki_types TEXT[], origin_island VARCHAR(100),
+      age INT, height_cm INT, status VARCHAR(50) DEFAULT 'alive',
+      created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS devil_fruits (
+      id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE,
+      type VARCHAR(50) NOT NULL CHECK (type IN ('Paramecia','Zoan','Logia')),
+      ability TEXT, weakness TEXT DEFAULT 'Seawater and Sea Prism Stone',
+      owner_id INT REFERENCES characters(id) ON DELETE SET NULL,
+      is_awakened BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS ships (
+      id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL,
+      type VARCHAR(100), crew_id INT REFERENCES crews(id) ON DELETE SET NULL,
+      speed_knots INT, cannons INT DEFAULT 0, special TEXT,
+      status VARCHAR(50) DEFAULT 'sailing', created_at TIMESTAMP DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS battles (
+      id SERIAL PRIMARY KEY, attacker_id INT NOT NULL, defender_id INT NOT NULL,
+      attacker_name VARCHAR(100), defender_name VARCHAR(100),
+      winner_id INT, winner_name VARCHAR(100), location VARCHAR(100),
+      technique_used VARCHAR(100), damage_dealt INT, duration_ms INT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    INSERT INTO crews (name, jolly_roger, home_island, bounty_total)
+    VALUES ('Straw Hat Pirates','💀🎩','East Blue',3161000100)
+    ON CONFLICT DO NOTHING;

@@ -1,0 +1,63 @@
+---
+# ArgoCD Application — deploys the entire One Piece platform
+# kubectl apply -f argocd/app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: onepiece-platform
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/onepiece-k8s.git
+    targetRevision: HEAD
+    path: k8s
+    directory:
+      recurse: true
+      include: '*.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: onepiece
+  syncPolicy:
+    automated:
+      prune: true        # delete removed resources
+      selfHeal: true     # fix drift automatically
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 5
+
+---
+# ArgoCD Project with RBAC
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: onepiece
+  namespace: argocd
+spec:
+  description: One Piece Kubernetes TP Project
+  sourceRepos:
+    - 'https://github.com/YOUR_USERNAME/onepiece-k8s.git'
+  destinations:
+    - namespace: onepiece
+      server: https://kubernetes.default.svc
+    - namespace: onepiece-monitoring
+      server: https://kubernetes.default.svc
+    - namespace: onepiece-gateway
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota

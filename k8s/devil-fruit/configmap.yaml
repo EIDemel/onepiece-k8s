@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devil-fruit-service-config
+  namespace: onepiece
+  labels:
+    app: devil-fruit-service
+data:
+  PORT: "3003"
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  REDIS_URL: "redis://redis:6379"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "onepiece"
+  CHARACTER_SERVICE_URL: "http://character-service:3002"
+  DEVIL_FRUIT_SERVICE_URL: "http://devil-fruit-service:3003"
+  CREW_SERVICE_URL: "http://crew-service:3001"
